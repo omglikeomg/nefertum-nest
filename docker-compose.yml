@@ -13,7 +13,7 @@ services:
       - .env.docker
     volumes:
       - .:/app
-      - /app/node_modules
+      - nefertum-nest-node-modules:/app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,3 +48,4 @@ services:
 
 volumes:
   nefertum-pg-data:
+  nefertum-nest-node-modules:
