@@ -27,6 +27,21 @@ Reset Postgres (drop the volume):
 docker compose down -v
 ```
 
+## End-to-end verification
+
+Run the full loop — bring up Postgres, apply migrations, run the Jest e2e
+suit against the real DB:
+
+```bash
+npm run verify
+```
+
+Current e2e cover (in `apps/api/test/app.e2e-spec.ts`):
+
+- The `AppModule` boots without throwing
+- `/graphql` responds to a `{ __typename }` query
+- The introspection schema exposes the `perfume` query
+
 The host-based dev path (`npm run start:dev` against a host Postgres) is still
 supported via the existing `.env` file.
 

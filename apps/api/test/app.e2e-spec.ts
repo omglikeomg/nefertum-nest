@@ -1,8 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 
-describe('AppModule (smoke)', () => {
+describe('AppModule (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -12,7 +13,11 @@ describe('AppModule (smoke)', () => {
 
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
   });
@@ -25,9 +30,28 @@ describe('AppModule (smoke)', () => {
     expect(app).toBeDefined();
   });
 
-  it('exposes a GraphQL endpoint', () => {
-    // GraphQL is registered as middleware by Apollo; its presence is implicit
-    // when the module compiles. Here we just assert the application is alive.
-    expect(typeof app.getHttpServer).toBe('function');
+  it('responds to a GraphQL introspection query', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/graphql')
+      .send({ query: '{ __typename }' })
+      .expect(200);
+
+    expect(response.body.data).toEqual({ __typename: 'Query' });
+  });
+
+  it('exposes the Query type with registered resolvers', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/graphql')
+      .send({
+        query: `{
+          __schema { queryType { name fields { name } } }
+        }`,
+      })
+      .expect(200);
+
+    const fieldNames = response.body.data.__schema.queryType.fields.map(
+      (f: { name: string }) => f.name,
+    );
+    expect(fieldNames).toContain('perfume');
   });
 });

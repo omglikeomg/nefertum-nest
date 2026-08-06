@@ -19,6 +19,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./apps/api/test/jest-e2e.json --runInBand",
+    "verify": "docker compose up -d && docker compose --profile migrate run --rm migrate && npm run test:e2e",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
@@ -68,7 +69,7 @@
     "moduleFileExtensions": ["js", "json", "ts"],
     "rootDir": ".",
     "testRegex": ".*\\.(spec|test)\\.ts$",
-    "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+    "transform": { "^.+\\.ts$": "ts-jest" },
     "collectCoverageFrom": [
       "apps/api/src/domain/**/*.{ts,js}",
       "apps/api/src/application/**/*.{ts,js}"
