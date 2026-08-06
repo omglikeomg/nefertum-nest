@@ -499,6 +499,7 @@ model SubmissionQueue {
   rejectionReason      String?
 
   resolvedEntityId     String?
+  resolvedBrandId      String?
 
   submittedById        String?
   reviewedById         String?
