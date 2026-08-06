@@ -1,0 +1,519 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum ShelfKind {
+  HAVE
+  HAD
+  WANT
+  WANT_TO_TRY
+  FAVORITES
+  CUSTOM
+}
+
+enum PyramidLevel {
+  TOP
+  HEART
+  BASE
+}
+
+enum ScaleMetric {
+  GENDER
+  LONGEVITY
+  SILLAGE
+  VALUE
+}
+
+enum RelationType {
+  REMINDS_ME_OF
+  ALSO_LIKES
+}
+
+enum VoteDirection {
+  UP
+  DOWN
+}
+
+enum ReviewStatus {
+  DRAFT
+  PUBLISHED
+  PENDING_REVIEW
+  HIDDEN
+  REMOVED
+}
+
+enum SubmissionStatus {
+  PENDING
+  ENTITY_RESOLVED
+  REQUIREMENTS_PASSED
+  APPROVED
+  REJECTED
+  NEEDS_INFO
+}
+
+enum SubmissionEntityType {
+  PERFUME
+  BRAND
+  NOTE
+  PERFUMER
+  ACCORD
+}
+
+enum AccordSource {
+  MANUAL
+  COMPUTED
+}
+
+// ─────────────────────────────────────────────────────────────
+// Identity / Users
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String?
+  displayName  String?
+  avatarUrl    String?
+  bio          String?
+  role         UserRole @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  shelves     Shelf[]
+  reviews     Review[]
+  reviewVotes ReviewVote[]
+
+  relationVotes PerfumeRelationVote[]
+  scaleVotes    PerfumeScaleVote[]
+
+  submittedSubmissions SubmissionQueue[] @relation("SubmissionSubmittedBy")
+  reviewedSubmissions  SubmissionQueue[] @relation("SubmissionReviewedBy")
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Catalog: Brand / Collection / Perfumer / Perfume
+// ─────────────────────────────────────────────────────────────
+
+model Brand {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  websiteUrl  String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  collections Collection[]
+  perfumes    Perfume[]
+
+  @@index([name])
+  @@map("brands")
+}
+
+model Collection {
+  id          String   @id @default(uuid())
+  brandId     String
+  name        String
+  slug        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  brand    Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  perfumes Perfume[]
+
+  @@unique([brandId, slug])
+  @@index([brandId, name])
+  @@map("collections")
+}
+
+model Perfumer {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  bio       String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  perfumes PerfumePerfumer[]
+
+  @@index([name])
+  @@map("perfumers")
+}
+
+model Perfume {
+  id                    String   @id @default(uuid())
+  brandId               String
+  collectionId          String?
+  name                  String
+  slug                  String
+  description           String?
+  imageUrl              String?
+  storeUrl              String?
+  releaseYear           Int?
+  discontinued          Boolean  @default(false)
+  discontinuationNotes  String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  brand        Brand       @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  perfumers      PerfumePerfumer[]
+  notes          PerfumeNote[]
+  accords        PerfumeAccord[]
+  reformulations PerfumeReformulation[]
+
+  shelfItems ShelfItem[]
+  reviews    Review[]
+
+  scaleVotes      PerfumeScaleVote[]
+  scaleHistograms PerfumeScaleHistogram[]
+
+  relationsFrom PerfumeRelation[] @relation("RelationSource")
+  relationsTo   PerfumeRelation[] @relation("RelationTarget")
+
+  @@unique([brandId, slug])
+  @@index([name])
+  @@index([brandId, releaseYear])
+  @@index([discontinued])
+  @@map("perfumes")
+}
+
+model PerfumePerfumer {
+  perfumeId  String
+  perfumerId String
+  role       String @default("PERFUMER")
+
+  perfume  Perfume  @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  perfumer Perfumer @relation(fields: [perfumerId], references: [id], onDelete: Cascade)
+
+  @@id([perfumeId, perfumerId])
+  @@index([perfumerId])
+  @@map("perfume_perfumers")
+}
+
+model PerfumeReformulation {
+  id          String   @id @default(uuid())
+  perfumeId   String
+  year        Int?
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+
+  @@index([perfumeId, year])
+  @@map("perfume_reformulations")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Canonical Notes + Accords
+// ─────────────────────────────────────────────────────────────
+
+model Note {
+  id            String   @id @default(uuid())
+  canonicalName String
+  slug          String   @unique
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  aliases      NoteAlias[]
+  perfumeNotes PerfumeNote[]
+  accordLinks  NoteAccord[]
+
+  @@index([canonicalName])
+  @@map("notes")
+}
+
+model NoteAlias {
+  id              String   @id @default(uuid())
+  noteId          String
+  alias           String
+  normalizedAlias String
+  createdAt       DateTime @default(now())
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([normalizedAlias])
+  @@index([noteId])
+  @@map("note_aliases")
+}
+
+model PerfumeNote {
+  id        String       @id @default(uuid())
+  perfumeId String
+  noteId    String
+  level     PyramidLevel
+  order     Int          @default(0)
+
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  note    Note    @relation(fields: [noteId], references: [id], onDelete: Restrict)
+
+  @@unique([perfumeId, noteId, level])
+  @@index([perfumeId, level])
+  @@index([noteId])
+  @@map("perfume_notes")
+}
+
+model Accord {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  noteLinks    NoteAccord[]
+  perfumeLinks PerfumeAccord[]
+
+  @@index([name])
+  @@map("accords")
+}
+
+model NoteAccord {
+  accordId String
+  noteId   String
+  weight   Float @default(1.0)
+
+  accord Accord @relation(fields: [accordId], references: [id], onDelete: Cascade)
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@id([accordId, noteId])
+  @@index([noteId])
+  @@map("note_accords")
+}
+
+model PerfumeAccord {
+  perfumeId String
+  accordId  String
+  source    AccordSource @default(MANUAL)
+  weight    Float        @default(1.0)
+  createdAt DateTime     @default(now())
+
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  accord  Accord  @relation(fields: [accordId], references: [id], onDelete: Cascade)
+
+  @@id([perfumeId, accordId])
+  @@index([accordId])
+  @@map("perfume_accords")
+}
+
+// ─────────────────────────────────────────────────────────────
+// User Shelves
+// ─────────────────────────────────────────────────────────────
+
+model Shelf {
+  id          String    @id @default(uuid())
+  userId      String
+  kind        ShelfKind
+  name        String
+  description String?
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ShelfItem[]
+
+  @@unique([userId, kind, name])
+  @@index([userId])
+  @@map("shelves")
+}
+
+model ShelfItem {
+  id        String   @id @default(uuid())
+  shelfId   String
+  perfumeId String
+  addedAt   DateTime @default(now())
+  note      String?
+
+  shelf   Shelf   @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+
+  @@unique([shelfId, perfumeId])
+  @@index([shelfId])
+  @@index([perfumeId])
+  @@map("shelf_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Community Relations
+// ─────────────────────────────────────────────────────────────
+
+model PerfumeRelation {
+  id              String       @id @default(uuid())
+  sourcePerfumeId String
+  targetPerfumeId String
+  type            RelationType
+  upvotes         Int          @default(0)
+  downvotes       Int          @default(0)
+  score           Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  sourcePerfume Perfume @relation("RelationSource", fields: [sourcePerfumeId], references: [id], onDelete: Cascade)
+  targetPerfume Perfume @relation("RelationTarget", fields: [targetPerfumeId], references: [id], onDelete: Cascade)
+
+  votes PerfumeRelationVote[]
+
+  @@unique([sourcePerfumeId, targetPerfumeId, type])
+  @@index([sourcePerfumeId, type, score])
+  @@index([targetPerfumeId, type])
+  @@map("perfume_relations")
+}
+
+model PerfumeRelationVote {
+  id         String        @id @default(uuid())
+  relationId String
+  userId     String
+  direction  VoteDirection
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  relation PerfumeRelation @relation(fields: [relationId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([relationId, userId])
+  @@index([userId])
+  @@map("perfume_relation_votes")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Reviews + Voting
+// ─────────────────────────────────────────────────────────────
+
+model Review {
+  id        String       @id @default(uuid())
+  perfumeId String
+  userId    String
+  title     String?
+  content   String
+  status    ReviewStatus @default(PUBLISHED)
+  upvotes   Int          @default(0)
+  downvotes Int          @default(0)
+  score     Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  perfume Perfume      @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes   ReviewVote[]
+
+  @@index([perfumeId, status, score])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model ReviewVote {
+  id        String        @id @default(uuid())
+  reviewId  String
+  userId    String
+  direction VoteDirection
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([userId])
+  @@map("review_votes")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Community Scale Voting
+// ─────────────────────────────────────────────────────────────
+
+model PerfumeScaleVote {
+  id        String      @id @default(uuid())
+  perfumeId String
+  userId    String
+  metric    ScaleMetric
+  bucket    Int
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([perfumeId, userId, metric])
+  @@index([perfumeId, metric])
+  @@map("perfume_scale_votes")
+}
+
+model PerfumeScaleHistogram {
+  id         String      @id @default(uuid())
+  perfumeId  String
+  metric     ScaleMetric
+  buckets    Json        @default("{}")
+  totalVotes Int         @default(0)
+  version    Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+
+  @@unique([perfumeId, metric])
+  @@map("perfume_scale_histograms")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Submission / Verification Pipeline
+// ─────────────────────────────────────────────────────────────
+
+model SubmissionQueue {
+  id                   String               @id @default(uuid())
+  entityType           SubmissionEntityType
+  status               SubmissionStatus     @default(PENDING)
+
+  rawPayload           Json
+  resolvedPayload      Json?
+  entityResolution     Json?
+
+  missingRequirements  String[]             @default([])
+  rejectionReason      String?
+
+  resolvedEntityId     String?
+
+  submittedById        String?
+  reviewedById         String?
+
+  entityResolvedAt       DateTime?
+  requirementsVerifiedAt DateTime?
+  reviewedAt             DateTime?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  submittedBy User? @relation("SubmissionSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy  User? @relation("SubmissionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, entityType])
+  @@index([submittedById])
+  @@map("submission_queue")
+}
