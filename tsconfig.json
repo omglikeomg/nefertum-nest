@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "target": "ES2022",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@domain/*": ["apps/api/src/domain/*"],
+      "@application/*": ["apps/api/src/application/*"],
+      "@infrastructure/*": ["apps/api/src/infrastructure/*"],
+      "@modules/*": ["apps/api/src/modules/*"]
+    }
+  },
+  "include": ["apps/**/*", "libs/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
