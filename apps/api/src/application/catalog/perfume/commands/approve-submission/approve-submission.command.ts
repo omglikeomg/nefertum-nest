@@ -4,12 +4,10 @@ export type CatalogLayer = 'catalog-min' | 'catalog-mid' | 'catalog-full';
 
 export type ApproveSubmissionMode = 'tuple' | 'object';
 
-interface BaseArgs {
+interface ObjectArgs {
   submissionId: string;
-}
-
-interface ObjectArgs extends BaseArgs {
   input: ApproveSubmissionInput;
+  layers?: readonly CatalogLayer[];
 }
 
 export class ApproveSubmissionCommand {
@@ -26,7 +24,8 @@ export class ApproveSubmissionCommand {
     } else {
       this.mode = 'object';
       this.submissionId = arg1.submissionId;
-      this.input = arg1 as ApproveSubmissionInput;
+      this.input = arg1.input;
+      this.layers = arg1.layers;
     }
   }
 }
