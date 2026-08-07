@@ -6,6 +6,7 @@ import { ApproveSubmissionHandler } from '../application/catalog/perfume/command
 import { GetPerfumeDetailsQueryHandler } from '../application/catalog/perfume/queries/get-perfume-details/get-perfume-details.handler';
 
 import { PerfumeResolver } from '../infrastructure/graphql/modules/perfume/perfume.resolver';
+import { PerfumeSubmissionResolver } from '../infrastructure/graphql/modules/submissions/perfume-submission.resolver';
 import { AdminSubmissionsController } from '../infrastructure/rest/admin/admin-submissions.controller';
 import { NoteAdminController } from '../infrastructure/rest/admin/note-admin.controller';
 import { PerfumeAdminController } from '../infrastructure/rest/admin/perfume-admin.controller';
@@ -25,6 +26,7 @@ import { SubmissionModule } from './submission.module';
     ApproveSubmissionHandler,
     GetPerfumeDetailsQueryHandler,
     PerfumeResolver,
+    PerfumeSubmissionResolver,
     AccordResolutionService,
     BrandResolutionService,
     NoteTaxonomyService,
