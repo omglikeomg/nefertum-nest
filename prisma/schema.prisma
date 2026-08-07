@@ -68,6 +68,14 @@ enum SubmissionStatus {
   NEEDS_INFO
 }
 
+enum PerfumeSubmissionStatus {
+  QUEUED
+  PROCESSING
+  NEEDS_REVIEW
+  APPROVED
+  REJECTED
+}
+
 enum SubmissionEntityType {
   PERFUME
   BRAND
@@ -141,7 +149,7 @@ model Collection {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  brand    Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand    Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
   perfumes Perfume[]
 
   @@unique([brandId, slug])
@@ -165,22 +173,22 @@ model Perfumer {
 }
 
 model Perfume {
-  id                    String   @id @default(uuid())
-  brandId               String
-  collectionId          String?
-  name                  String
-  slug                  String
-  description           String?
-  imageUrl              String?
-  storeUrl              String?
-  releaseYear           Int?
-  discontinued          Boolean  @default(false)
-  discontinuationNotes  String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  brandId              String
+  collectionId         String?
+  name                 String
+  slug                 String
+  description          String?
+  imageUrl             String?
+  storeUrl             String?
+  releaseYear          Int?
+  discontinued         Boolean  @default(false)
+  discontinuationNotes String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  brand        Brand       @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  brand      Brand       @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  collection Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
 
   perfumers      PerfumePerfumer[]
   notes          PerfumeNote[]
@@ -298,7 +306,7 @@ model Accord {
 model NoteAccord {
   accordId String
   noteId   String
-  weight   Float @default(1.0)
+  weight   Float  @default(1.0)
 
   accord Accord @relation(fields: [accordId], references: [id], onDelete: Cascade)
   note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
@@ -487,29 +495,29 @@ model PerfumeScaleHistogram {
 // ─────────────────────────────────────────────────────────────
 
 model SubmissionQueue {
-  id                   String               @id @default(uuid())
-  entityType           SubmissionEntityType
-  status               SubmissionStatus     @default(PENDING)
+  id         String               @id @default(uuid())
+  entityType SubmissionEntityType
+  status     SubmissionStatus     @default(PENDING)
 
-  rawPayload           Json
-  resolvedPayload      Json?
-  entityResolution     Json?
+  rawPayload       Json
+  resolvedPayload  Json?
+  entityResolution Json?
 
-  missingRequirements  String[]             @default([])
-  rejectionReason      String?
+  missingRequirements String[] @default([])
+  rejectionReason     String?
 
-  resolvedEntityId     String?
-  resolvedBrandId      String?
+  resolvedEntityId String?
+  resolvedBrandId  String?
 
-  submittedById        String?
-  reviewedById         String?
+  submittedById String?
+  reviewedById  String?
 
   entityResolvedAt       DateTime?
   requirementsVerifiedAt DateTime?
   reviewedAt             DateTime?
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   submittedBy User? @relation("SubmissionSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
   reviewedBy  User? @relation("SubmissionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
@@ -517,4 +525,28 @@ model SubmissionQueue {
   @@index([status, entityType])
   @@index([submittedById])
   @@map("submission_queue")
+}
+
+model PerfumeSubmission {
+  id                    String                  @id @default(uuid())
+  status                PerfumeSubmissionStatus @default(QUEUED)
+  payload               Json
+  checkReport           Json?
+  unresolvedEntities    Json?
+  adminOverrides        Json?
+  confidence            Float?
+  rejectionReason       String?
+  resolvedBrandId       String?
+  materializedPerfumeId String?
+  submittedById         String?
+  reviewedById          String?
+  queuedAt              DateTime                @default(now())
+  processedAt           DateTime?
+  reviewedAt            DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([status, createdAt])
+  @@index([submittedById])
+  @@map("perfume_submissions")
 }
