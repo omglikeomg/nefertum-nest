@@ -9,13 +9,11 @@ import { SubmissionAdminController } from '../infrastructure/rest/admin/submissi
 import { NoteAdminController } from '../infrastructure/rest/admin/note-admin.controller';
 import { PerfumeAdminController } from '../infrastructure/rest/admin/perfume-admin.controller';
 
+import { SubmissionModule } from './submission.module';
+
 @Module({
-  imports: [CqrsModule],
-  providers: [
-    SubmitNewPerfumeHandler,
-    GetPerfumeDetailsQueryHandler,
-    PerfumeResolver,
-  ],
+  imports: [CqrsModule, SubmissionModule],
+  providers: [SubmitNewPerfumeHandler, GetPerfumeDetailsQueryHandler, PerfumeResolver],
   controllers: [SubmissionAdminController, NoteAdminController, PerfumeAdminController],
   exports: [CqrsModule],
 })
