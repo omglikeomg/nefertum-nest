@@ -4,6 +4,12 @@ node_modules/
 # Build output
 dist/
 
+# TypeScript compiler / language service artifacts (emitted alongside source)
+*.js
+*.js.map
+*.d.ts
+*.tsbuildinfo
+
 # Test coverage
 coverage/
 
