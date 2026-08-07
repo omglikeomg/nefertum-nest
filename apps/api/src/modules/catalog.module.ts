@@ -6,7 +6,7 @@ import { ApproveSubmissionHandler } from '../application/catalog/perfume/command
 import { GetPerfumeDetailsQueryHandler } from '../application/catalog/perfume/queries/get-perfume-details/get-perfume-details.handler';
 
 import { PerfumeResolver } from '../infrastructure/graphql/modules/perfume/perfume.resolver';
-import { SubmissionAdminController } from '../infrastructure/rest/admin/submission-admin.controller';
+import { AdminSubmissionsController } from '../infrastructure/rest/admin/admin-submissions.controller';
 import { NoteAdminController } from '../infrastructure/rest/admin/note-admin.controller';
 import { PerfumeAdminController } from '../infrastructure/rest/admin/perfume-admin.controller';
 
@@ -31,7 +31,7 @@ import { SubmissionModule } from './submission.module';
     PerfumerResolutionService,
     PerfumeMaterializationService,
   ],
-  controllers: [SubmissionAdminController, NoteAdminController, PerfumeAdminController],
+  controllers: [AdminSubmissionsController, NoteAdminController, PerfumeAdminController],
   exports: [CqrsModule, PerfumeMaterializationService],
 })
 export class CatalogModule {}
