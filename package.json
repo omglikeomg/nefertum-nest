@@ -18,7 +18,12 @@
     "test:e2e": "jest --config ./apps/api/test/jest-e2e.json --runInBand",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "seed": "ts-node -r tsconfig-paths/register bin/seeder.ts",
+    "seed:inspect": "ts-node -r tsconfig-paths/register bin/seeder.ts inspect-fragrantica",
+    "seed:catalog-min": "ts-node -r tsconfig-paths/register bin/seeder.ts catalog-min",
+    "seed:catalog-mid": "ts-node -r tsconfig-paths/register bin/seeder.ts catalog-mid",
+    "seed:catalog-full": "ts-node -r tsconfig-paths/register bin/seeder.ts catalog-full"
   },
   "dependencies": {
     "@apollo/server": "^4.10.0",
