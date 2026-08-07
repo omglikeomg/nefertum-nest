@@ -1,8 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
+import { CqrsModule } from '@nestjs/cqrs';
 
 import { PrismaModule } from './prisma.module';
+
+import { ApproveSubmissionHandler } from '../application/catalog/perfume/commands/approve-submission/approve-submission.handler';
+import { AccordResolutionService } from '../application/catalog/perfume/services/accord-resolution.service';
+import { BrandResolutionService } from '../application/catalog/perfume/services/brand-resolution.service';
+import { NoteTaxonomyService } from '../application/catalog/perfume/services/note-taxonomy.service';
+import { PerfumerResolutionService } from '../application/catalog/perfume/services/perfumer-resolution.service';
+import { PerfumeMaterializationService } from '../application/catalog/perfume/services/perfume-materialization.service';
 
 @Module({
   imports: [
@@ -17,9 +25,17 @@ import { PrismaModule } from './prisma.module';
       }),
     }),
     PrismaModule,
+    CqrsModule,
   ],
-  providers: [],
+  providers: [
+    ApproveSubmissionHandler,
+    AccordResolutionService,
+    BrandResolutionService,
+    NoteTaxonomyService,
+    PerfumerResolutionService,
+    PerfumeMaterializationService,
+  ],
   controllers: [],
-  exports: [],
+  exports: [PerfumeMaterializationService],
 })
 export class SubmissionModule {}
