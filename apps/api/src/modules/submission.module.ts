@@ -3,7 +3,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 
 import { PrismaModule } from './prisma.module';
-import { CatalogModule } from './catalog.module';
 
 @Module({
   imports: [
@@ -18,7 +17,6 @@ import { CatalogModule } from './catalog.module';
       }),
     }),
     PrismaModule,
-    CatalogModule,
   ],
   providers: [],
   controllers: [],

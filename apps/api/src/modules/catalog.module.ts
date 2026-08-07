@@ -9,11 +9,24 @@ import { SubmissionAdminController } from '../infrastructure/rest/admin/submissi
 import { NoteAdminController } from '../infrastructure/rest/admin/note-admin.controller';
 import { PerfumeAdminController } from '../infrastructure/rest/admin/perfume-admin.controller';
 
+import { AccordResolutionService } from '../application/catalog/perfume/services/accord-resolution.service';
+import { BrandResolutionService } from '../application/catalog/perfume/services/brand-resolution.service';
+import { NoteTaxonomyService } from '../application/catalog/perfume/services/note-taxonomy.service';
+import { PerfumerResolutionService } from '../application/catalog/perfume/services/perfumer-resolution.service';
+
 import { SubmissionModule } from './submission.module';
 
 @Module({
   imports: [CqrsModule, SubmissionModule],
-  providers: [SubmitNewPerfumeHandler, GetPerfumeDetailsQueryHandler, PerfumeResolver],
+  providers: [
+    SubmitNewPerfumeHandler,
+    GetPerfumeDetailsQueryHandler,
+    PerfumeResolver,
+    AccordResolutionService,
+    BrandResolutionService,
+    NoteTaxonomyService,
+    PerfumerResolutionService,
+  ],
   controllers: [SubmissionAdminController, NoteAdminController, PerfumeAdminController],
   exports: [CqrsModule],
 })

@@ -1,32 +1,32 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import {
-  Prisma,
-  SubmissionEntityType,
-  SubmissionStatus,
-} from '@prisma/client';
+import { Prisma, SubmissionEntityType, SubmissionStatus } from '@prisma/client';
 
 import { PrismaService } from '../../../../../infrastructure/database/prisma/prisma.service';
-import { CanonicalNote } from '../../../../../domain/catalog/perfume/entities/canonical-note.entity';
 import { isPyramidLevel } from '../../../../../domain/catalog/perfume/entities/perfume.aggregate';
+import { CanonicalNote } from '../../../../../domain/catalog/perfume/entities/canonical-note.entity';
 
 import { SubmitNewPerfumeCommand } from './submit-new-perfume.command';
-import {
-  ResolvedAccordRef,
-  ResolvedNoteRef,
-  ResolvedPerfumerRef,
-  SubmitNewPerfumeInput,
-  SubmitNewPerfumeResult,
-} from './submit-new-perfume.types';
+import { SubmitNewPerfumeInput, SubmitNewPerfumeResult } from './submit-new-perfume.types';
+
+import { AccordResolutionService } from '../../services/accord-resolution.service';
+import { BrandResolutionService } from '../../services/brand-resolution.service';
+import { NoteTaxonomyService } from '../../services/note-taxonomy.service';
+import { PerfumerResolutionService } from '../../services/perfumer-resolution.service';
 
 @CommandHandler(SubmitNewPerfumeCommand)
-export class SubmitNewPerfumeHandler
-  implements ICommandHandler<SubmitNewPerfumeCommand, SubmitNewPerfumeResult>
-{
-  constructor(private readonly prisma: PrismaService) {}
+export class SubmitNewPerfumeHandler implements ICommandHandler<
+  SubmitNewPerfumeCommand,
+  SubmitNewPerfumeResult
+> {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly brandResolver: BrandResolutionService,
+    private readonly noteResolver: NoteTaxonomyService,
+    private readonly perfumerResolver: PerfumerResolutionService,
+    private readonly accordResolver: AccordResolutionService,
+  ) {}
 
-  async execute(
-    command: SubmitNewPerfumeCommand,
-  ): Promise<SubmitNewPerfumeResult> {
+  async execute(command: SubmitNewPerfumeCommand): Promise<SubmitNewPerfumeResult> {
     const { input } = command;
 
     this.validate(input);
@@ -43,23 +43,17 @@ export class SubmitNewPerfumeHandler
         },
       });
 
-      const resolvedBrand = await this.resolveBrand(
-        tx,
-        input.brandId,
-        input.brandName,
-      );
+      const brandResult = await this.brandResolver.resolve(tx, input.brandId, input.brandName);
+      const resolvedBrand = brandResult.code === 'RESOLVED' ? brandResult.brand : null;
 
       const rawNoteNames = (input.rawNotes ?? []).map((note) => note.rawName);
 
-      const notesResolution = await this.resolveNotes(tx, rawNoteNames);
-      const perfumersResolution = await this.resolvePerfumers(
+      const notesResolution = await this.noteResolver.resolve(tx, rawNoteNames);
+      const perfumersResolution = await this.perfumerResolver.resolve(
         tx,
         input.rawPerfumerNames ?? [],
       );
-      const accordsResolution = await this.resolveAccords(
-        tx,
-        input.rawAccords ?? [],
-      );
+      const accordsResolution = await this.accordResolver.resolve(tx, input.rawAccords ?? []);
 
       const mandatoryRequirementsPassed =
         missingRequirements.length === 0 && resolvedBrand !== null;
@@ -87,8 +81,7 @@ export class SubmitNewPerfumeHandler
         notes: (input.rawNotes ?? []).map((note) => ({
           rawName: note.rawName,
           level: note.level,
-          canonicalNoteId:
-            noteLookup.get(CanonicalNote.normalizeAlias(note.rawName)) ?? null,
+          canonicalNoteId: noteLookup.get(CanonicalNote.normalizeAlias(note.rawName)) ?? null,
         })),
         accords: accordsResolution.resolved,
       };
@@ -110,10 +103,7 @@ export class SubmitNewPerfumeHandler
 
       const rejectionReason =
         status === SubmissionStatus.REJECTED
-          ? this.buildRejectionReason(
-              missingRequirements,
-              resolvedBrand === null,
-            )
+          ? this.buildRejectionReason(missingRequirements, resolvedBrand === null)
           : null;
 
       const updatedSubmission = await tx.submissionQueue.update({
@@ -122,12 +112,8 @@ export class SubmitNewPerfumeHandler
         },
         data: {
           status,
-          resolvedPayload: JSON.parse(
-            JSON.stringify(resolvedPayload),
-          ) as Prisma.InputJsonValue,
-          entityResolution: JSON.parse(
-            JSON.stringify(entityResolution),
-          ) as Prisma.InputJsonValue,
+          resolvedPayload: JSON.parse(JSON.stringify(resolvedPayload)) as Prisma.InputJsonValue,
+          entityResolution: JSON.parse(JSON.stringify(entityResolution)) as Prisma.InputJsonValue,
           missingRequirements,
           rejectionReason,
           resolvedBrandId: resolvedBrand?.id ?? null,
@@ -162,9 +148,7 @@ export class SubmitNewPerfumeHandler
 
     for (const rawNote of input.rawNotes ?? []) {
       if (!isPyramidLevel(rawNote.level)) {
-        throw new Error(
-          `Invalid pyramid level: ${String(rawNote.level)}.`,
-        );
+        throw new Error(`Invalid pyramid level: ${String(rawNote.level)}.`);
       }
     }
   }
@@ -195,224 +179,7 @@ export class SubmitNewPerfumeHandler
     return missing;
   }
 
-  private async resolveBrand(
-    tx: Prisma.TransactionClient,
-    brandId?: string,
-    brandName?: string,
-  ) {
-    if (brandId) {
-      return tx.brand.findUnique({
-        where: {
-          id: brandId,
-        },
-      });
-    }
-
-    if (brandName) {
-      return tx.brand.findFirst({
-        where: {
-          name: {
-            equals: brandName.trim(),
-            mode: 'insensitive',
-          },
-        },
-      });
-    }
-
-    return null;
-  }
-
-  private async resolveNotes(
-    tx: Prisma.TransactionClient,
-    rawNames: readonly string[],
-  ): Promise<{
-    resolved: ResolvedNoteRef[];
-    unresolved: string[];
-  }> {
-    const uniqueRawNames = [
-      ...new Set(rawNames.map((name) => name.trim()).filter(Boolean)),
-    ];
-
-    if (uniqueRawNames.length === 0) {
-      return {
-        resolved: [],
-        unresolved: [],
-      };
-    }
-
-    const normalizedAliases = uniqueRawNames.map((rawName) =>
-      CanonicalNote.normalizeAlias(rawName),
-    );
-
-    const noteRows = await tx.note.findMany({
-      where: {
-        OR: [
-          {
-            canonicalName: {
-              in: uniqueRawNames,
-              mode: 'insensitive',
-            },
-          },
-          {
-            aliases: {
-              some: {
-                normalizedAlias: {
-                  in: normalizedAliases,
-                },
-              },
-            },
-          },
-        ],
-      },
-      include: {
-        aliases: true,
-      },
-    });
-
-    const candidates = noteRows.map((row) =>
-      CanonicalNote.create({
-        id: row.id,
-        canonicalName: row.canonicalName,
-        aliases: row.aliases.map((alias) => alias.alias),
-        description: row.description ?? undefined,
-      }),
-    );
-
-    const resolved: ResolvedNoteRef[] = [];
-    const unresolved: string[] = [];
-
-    for (const rawName of uniqueRawNames) {
-      const canonicalNote = CanonicalNote.resolve(rawName, candidates);
-
-      if (canonicalNote) {
-        resolved.push({
-          rawName,
-          canonicalNoteId: canonicalNote.id,
-          canonicalName: canonicalNote.canonicalName,
-        });
-      } else {
-        unresolved.push(rawName);
-      }
-    }
-
-    return {
-      resolved,
-      unresolved,
-    };
-  }
-
-  private async resolvePerfumers(
-    tx: Prisma.TransactionClient,
-    rawNames: readonly string[],
-  ): Promise<{
-    resolved: ResolvedPerfumerRef[];
-    unresolved: string[];
-  }> {
-    const uniqueRawNames = [
-      ...new Set(rawNames.map((name) => name.trim()).filter(Boolean)),
-    ];
-
-    if (uniqueRawNames.length === 0) {
-      return {
-        resolved: [],
-        unresolved: [],
-      };
-    }
-
-    const perfumerRows = await tx.perfumer.findMany({
-      where: {
-        name: {
-          in: uniqueRawNames,
-          mode: 'insensitive',
-        },
-      },
-    });
-
-    const resolved: ResolvedPerfumerRef[] = [];
-    const unresolved: string[] = [];
-
-    for (const rawName of uniqueRawNames) {
-      const normalizedRaw = CanonicalNote.normalizeAlias(rawName);
-
-      const perfumer = perfumerRows.find(
-        (row) => CanonicalNote.normalizeAlias(row.name) === normalizedRaw,
-      );
-
-      if (perfumer) {
-        resolved.push({
-          rawName,
-          perfumerId: perfumer.id,
-          perfumerName: perfumer.name,
-        });
-      } else {
-        unresolved.push(rawName);
-      }
-    }
-
-    return {
-      resolved,
-      unresolved,
-    };
-  }
-
-  private async resolveAccords(
-    tx: Prisma.TransactionClient,
-    rawNames: readonly string[],
-  ): Promise<{
-    resolved: ResolvedAccordRef[];
-    unresolved: string[];
-  }> {
-    const uniqueRawNames = [
-      ...new Set(rawNames.map((name) => name.trim()).filter(Boolean)),
-    ];
-
-    if (uniqueRawNames.length === 0) {
-      return {
-        resolved: [],
-        unresolved: [],
-      };
-    }
-
-    const accordRows = await tx.accord.findMany({
-      where: {
-        name: {
-          in: uniqueRawNames,
-          mode: 'insensitive',
-        },
-      },
-    });
-
-    const resolved: ResolvedAccordRef[] = [];
-    const unresolved: string[] = [];
-
-    for (const rawName of uniqueRawNames) {
-      const normalizedRaw = CanonicalNote.normalizeAlias(rawName);
-
-      const accord = accordRows.find(
-        (row) => CanonicalNote.normalizeAlias(row.name) === normalizedRaw,
-      );
-
-      if (accord) {
-        resolved.push({
-          rawName,
-          accordId: accord.id,
-          accordName: accord.name,
-        });
-      } else {
-        unresolved.push(rawName);
-      }
-    }
-
-    return {
-      resolved,
-      unresolved,
-    };
-  }
-
-  private buildRejectionReason(
-    missingRequirements: string[],
-    brandMissing: boolean,
-  ): string {
+  private buildRejectionReason(missingRequirements: string[], brandMissing: boolean): string {
     const reasons: string[] = [];
 
     if (missingRequirements.length > 0) {
