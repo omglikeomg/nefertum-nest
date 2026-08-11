@@ -1,0 +1,17 @@
+# fixtures/fragrantica/perfumes.example.txt
+#
+# Committed seed-example URLs for `npm run seed:catalog-min -- --fixture=...`.
+# Copy to `perfumes.txt` (gitignored) for local runs. Format: one URL per line.
+# Lines starting with `#` and blank lines are ignored. Two URLs in the same
+# file are processed sequentially with `--delay` ms between them.
+#
+# NOTE: Do NOT run two CLI invocations against the same fixture concurrently.
+# A `--lock` flag is on the roadmap (E13 follow-up); for now, treat the fixture
+# file as a single-tenant resource.
+#
+# Replace these with URLs you have permission to scrape. The committed examples
+# are real Fragrantica pages used as documentation for the seeder's expected
+# input format only.
+https://www.fragrantica.com/perfume/Chanel/Coco-Mademoiselle-613.html
+https://www.fragrantica.com/perfume/Dior/Sauvage-26521.html
+https://www.fragrantica.com/perfume/Tom-Ford/Tobacco-Vanille-1825.html
