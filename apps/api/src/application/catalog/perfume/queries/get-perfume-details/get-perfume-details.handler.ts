@@ -12,11 +12,10 @@ import {
   ScaleMetric,
 } from '../../../../../domain/catalog/perfume/value-objects/scale-histogram.vo';
 
+import { toNotePyramid } from '../shared/note-pyramid.mapper';
 import { GetPerfumeDetailsQuery } from './get-perfume-details.query';
 import {
   PerfumeDetailsAccord,
-  PerfumeDetailsNote,
-  PerfumeDetailsNotePyramid,
   PerfumeDetailsRelation,
   PerfumeDetailsResult,
   PerfumeDetailsReview,
@@ -160,32 +159,7 @@ export class GetPerfumeDetailsQueryHandler
   }
 
   private mapToDetails(perfume: PerfumeDetailsRow): PerfumeDetailsResult {
-    const notes: PerfumeDetailsNotePyramid = {
-      top: [],
-      heart: [],
-      base: [],
-    };
-
-    for (const assignment of perfume.notes) {
-      const note: PerfumeDetailsNote = {
-        noteId: assignment.note.id,
-        canonicalName: assignment.note.canonicalName,
-        slug: assignment.note.slug,
-        order: assignment.order,
-      };
-
-      if (assignment.level === 'TOP') {
-        notes.top.push(note);
-      }
-
-      if (assignment.level === 'HEART') {
-        notes.heart.push(note);
-      }
-
-      if (assignment.level === 'BASE') {
-        notes.base.push(note);
-      }
-    }
+    const notes = toNotePyramid(perfume.notes);
 
     const remindsMeOf: PerfumeDetailsRelation[] = [];
     const peopleAlsoLike: PerfumeDetailsRelation[] = [];
