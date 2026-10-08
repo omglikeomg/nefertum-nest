@@ -7,7 +7,9 @@ import {
 } from '../../../../application/catalog/perfume/commands/submit-new-perfume/submit-new-perfume.types';
 import { GetPerfumeDetailsQuery } from '../../../../application/catalog/perfume/queries/get-perfume-details/get-perfume-details.query';
 import { PerfumeDetailsResult } from '../../../../application/catalog/perfume/queries/get-perfume-details/get-perfume-details.types';
+import { GetPerfumesForComparisonQuery } from '../../../../application/catalog/perfume/queries/get-perfumes-for-comparison/get-perfumes-for-comparison.query';
 import { SubmitNewPerfumeGraphqlInput } from './dto/perfume.dto';
+import { PerfumeComparisonGql } from './dto/perfume-comparison.gql';
 import { PerfumeDetailsResultGql } from './dto/perfume-details-result.gql';
 import { SubmitNewPerfumeResultGql } from './dto/submit-perfume-result.gql';
 
@@ -33,6 +35,13 @@ export class PerfumeResolver {
       releaseYear: result.releaseYear,
       discontinued: result.discontinued,
     };
+  }
+
+  @Query(() => [PerfumeComparisonGql], { name: 'perfumes' })
+  async getPerfumes(
+    @Args('ids', { type: () => [ID] }) ids: string[],
+  ): Promise<PerfumeComparisonGql[]> {
+    return this.queryBus.execute(new GetPerfumesForComparisonQuery(ids));
   }
 
   @Mutation(() => SubmitNewPerfumeResultGql, { name: 'submitNewPerfume' })
